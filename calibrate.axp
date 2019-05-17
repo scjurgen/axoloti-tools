@@ -1,0 +1,372 @@
+<patch-1.0 appVersion="1.0.12">
+   <obj type="audio/inconfig" uuid="9a80ef3c19f2a8f81da3a3b7c1c44d18126b97d9" name="inconfig_1" x="0" y="0">
+      <params/>
+      <attribs>
+         <combo attributeName="gain" selection="0dB"/>
+         <combo attributeName="boost" selection="0dB"/>
+         <combo attributeName="mode" selection="Stereo"/>
+      </attribs>
+   </obj>
+   <obj type="audio/outconfig" uuid="eace67e3304afaa1bb695b444e9345f2d8adaf00" name="outconfig_1" x="504" y="0">
+      <params/>
+      <attribs>
+         <combo attributeName="headphones" selection="0dB"/>
+         <combo attributeName="mode" selection="Stereo"/>
+      </attribs>
+   </obj>
+   <patchobj type="patch/object" uuid="33bd0e47-1148-45ed-8ccf-51bec0399259" name="object_1" x="168" y="14">
+      <params/>
+      <attribs/>
+      <object id="patch/object" uuid="33bd0e47-1148-45ed-8ccf-51bec0399259">
+         <inlets>
+            <frac32buffer name="signalLeft"/>
+            <frac32buffer name="signalRight"/>
+         </inlets>
+         <outlets/>
+         <displays>
+            <int32.label name="dbLeft"/>
+            <int32.label name="dbRight"/>
+         </displays>
+         <params/>
+         <attribs/>
+         <includes/>
+         <code.declaration><![CDATA[int32_t lastMinValue[2] = {0,0};
+int32_t lastMaxValue[2] = {0,0};
+int32_t currentMinValue[2] = {0,0};
+int32_t currentMaxValue[2] = {0,0};
+int32_t rmsSum[2] = {0,0};
+int32_t rmsCount = 0;
+int32_t kSplice = 0;
+const float correctDb = 1.166;]]></code.declaration>
+         <code.krate><![CDATA[kSplice--;
+if (kSplice < 0)
+{
+	kSplice = 3000;
+	lastMinValue[0] = currentMinValue[0];
+	lastMaxValue[0] = currentMaxValue[0];
+	currentMinValue[0] = currentMaxValue[0] = inlet_signalLeft[0];	
+	lastMinValue[1] = currentMinValue[1];
+	lastMaxValue[1] = currentMaxValue[1];
+	currentMinValue[1] = currentMaxValue[1] = inlet_signalRight[0];	
+	int32_t absMaxLeft = -lastMinValue[0];
+	if (lastMaxValue[0] > absMaxLeft) 
+		absMaxLeft = lastMaxValue[0];
+	int32_t absMaxRight = -lastMinValue[1];
+	if (lastMaxValue[1] > absMaxRight) 
+		absMaxRight = lastMaxValue[1];
+	float maxDbLeft = q27_to_float(absMaxLeft)*correctDb;
+	float maxDbRight = q27_to_float(absMaxRight)*correctDb;
+	disp_dbLeft=int(log(maxDbLeft)/log(2)*6.0+0.5);
+	disp_dbRight=int(log(maxDbRight)/log(2)*6.0+0.5);
+	LogTextMessage("%f (%f dBu) %f (%f dBu)", 
+		maxDbLeft, log(maxDbLeft)/log(2)*6.0,
+		maxDbRight, log(maxDbRight)/log(2)*6.0);
+}]]></code.krate>
+         <code.srate><![CDATA[if (inlet_signalLeft < currentMinValue[0])
+{
+	currentMinValue[0] = inlet_signalLeft;
+}
+if (inlet_signalLeft > currentMaxValue[0])
+{
+	currentMaxValue[0] = inlet_signalLeft;
+}
+
+if (inlet_signalRight< currentMinValue[1])
+{
+	currentMinValue[1] = inlet_signalRight;
+}
+if (inlet_signalRight > currentMaxValue[1])
+{
+	currentMaxValue[1] = inlet_signalRight;
+}]]></code.srate>
+      </object>
+   </patchobj>
+   <obj type="noise/pink" uuid="72c03a2468ee865f248733fcf9b12d4cf42b5a61" name="pink_3" x="350" y="28">
+      <params/>
+      <attribs/>
+   </obj>
+   <obj type="math/gain" uuid="62b1c1a6337c7c8f6aec96408a432477b113cfa0" name="gain_1" x="644" y="56">
+      <params>
+         <frac32.u.map name="amp" value="4.0"/>
+      </params>
+      <attribs/>
+   </obj>
+   <obj type="audio/in stereo" uuid="99848ad6d90a8e615e83b2e619cfc806f28e7281" name="in_1" x="0" y="70">
+      <params/>
+      <attribs/>
+   </obj>
+   <obj type="noise/pink" uuid="72c03a2468ee865f248733fcf9b12d4cf42b5a61" name="pink_2" x="350" y="70">
+      <params/>
+      <attribs/>
+   </obj>
+   <patchobj type="patch/object" uuid="b0a6bad2-bdb8-4d1d-88b6-df3b0ee6efea" name="mix_1" x="518" y="98">
+      <params>
+         <frac32.u.map name="gain1" value="0.0"/>
+         <frac32.u.map name="gain2" value="64.0"/>
+      </params>
+      <attribs/>
+      <object id="patch/object" uuid="b0a6bad2-bdb8-4d1d-88b6-df3b0ee6efea">
+         <sDescription>2 input s-rate mixer, shows gain units</sDescription>
+         <author>Johannes Taelman</author>
+         <license>BSD</license>
+         <inlets>
+            <frac32buffer name="bus_in" description="input with unity gain"/>
+            <frac32buffer name="in1" description="input 1"/>
+            <frac32buffer name="in2" description="input 2"/>
+         </inlets>
+         <outlets>
+            <frac32buffer name="out" description="mix out"/>
+         </outlets>
+         <displays/>
+         <params>
+            <frac32.u.map.gain name="gain1">
+               <DefaultValue v="32.0"/>
+            </frac32.u.map.gain>
+            <frac32.u.map.gain name="gain2">
+               <DefaultValue v="32.0"/>
+            </frac32.u.map.gain>
+         </params>
+         <attribs/>
+         <includes/>
+         <code.srate><![CDATA[int32_t accum = ___SMMUL(inlet_in1,param_gain1);
+   accum = ___SMMLA(inlet_in2,param_gain2,accum);
+;   outlet_out=  __SSAT(inlet_bus__in + (accum<<1),30);]]></code.srate>
+      </object>
+   </patchobj>
+   <patchobj type="patch/object" uuid="465001c6-1eab-476b-b3b7-8b989c6e8a96" name="*c_1" x="336" y="126">
+      <params>
+         <frac32.u.map name="amp" value="64.0"/>
+      </params>
+      <attribs/>
+      <object id="patch/object" uuid="465001c6-1eab-476b-b3b7-8b989c6e8a96">
+         <sDescription>Multiply (attenuate) with a constant value</sDescription>
+         <author>Johannes Taelman</author>
+         <license>BSD</license>
+         <helpPatch>math.axh</helpPatch>
+         <inlets>
+            <frac32buffer name="in" description="input"/>
+         </inlets>
+         <outlets>
+            <frac32buffer name="out" description="output"/>
+         </outlets>
+         <displays/>
+         <params>
+            <frac32.u.map.gain name="amp" noLabel="true"/>
+         </params>
+         <attribs/>
+         <includes/>
+         <code.srate><![CDATA[outlet_out= ___SMMUL(param_amp,inlet_in)<<1;]]></code.srate>
+      </object>
+   </patchobj>
+   <obj type="drj/osc/dual_sine" uuid="75f7330c26a18222985dc553ba3b9008545c1daa9" name="dual_sine_1" x="182" y="140">
+      <params>
+         <frac32.s.map name="pitch" value="19.445950031280518"/>
+      </params>
+      <attribs/>
+   </obj>
+   <obj type="audio/out stereo" uuid="a1ca7a567f535acc21055669829101d3ee7f0189" name="out_1" x="770" y="140">
+      <params/>
+      <attribs/>
+   </obj>
+   <patchobj type="patch/object" uuid="0d8d87f7-9634-4aca-aaea-29313c4f9f46" name="*c_2" x="336" y="224">
+      <params>
+         <frac32.u.map name="amp" value="64.0"/>
+      </params>
+      <attribs/>
+      <object id="patch/object" uuid="0d8d87f7-9634-4aca-aaea-29313c4f9f46">
+         <sDescription>Multiply (attenuate) with a constant value</sDescription>
+         <author>Johannes Taelman</author>
+         <license>BSD</license>
+         <helpPatch>math.axh</helpPatch>
+         <inlets>
+            <frac32buffer name="in" description="input"/>
+         </inlets>
+         <outlets>
+            <frac32buffer name="out" description="output"/>
+         </outlets>
+         <displays/>
+         <params>
+            <frac32.u.map.gain name="amp" noLabel="true"/>
+         </params>
+         <attribs/>
+         <includes/>
+         <code.srate><![CDATA[outlet_out= ___SMMUL(param_amp,inlet_in)<<1;]]></code.srate>
+      </object>
+   </patchobj>
+   <patchobj type="patch/object" uuid="33bd0e47-1148-45ed-8ccf-51bec0399259" name="object_2" x="770" y="252">
+      <params/>
+      <attribs/>
+      <object id="patch/object" uuid="33bd0e47-1148-45ed-8ccf-51bec0399259">
+         <inlets>
+            <frac32buffer name="signalLeft"/>
+            <frac32buffer name="signalRight"/>
+         </inlets>
+         <outlets/>
+         <displays>
+            <int32.label name="dbLeft"/>
+            <int32.label name="dbRight"/>
+         </displays>
+         <params/>
+         <attribs/>
+         <includes/>
+         <code.declaration><![CDATA[int32_t lastMinValue[2] = {0,0};
+int32_t lastMaxValue[2] = {0,0};
+int32_t currentMinValue[2] = {0,0};
+int32_t currentMaxValue[2] = {0,0};
+int32_t rmsSum[2] = {0,0};
+int32_t rmsCount = 0;
+int32_t kSplice = 0;
+const float correctDb = 1.166;]]></code.declaration>
+         <code.krate><![CDATA[kSplice--;
+if (kSplice < 0)
+{
+	kSplice = 3000;
+	lastMinValue[0] = currentMinValue[0];
+	lastMaxValue[0] = currentMaxValue[0];
+	currentMinValue[0] = currentMaxValue[0] = inlet_signalLeft[0];	
+	lastMinValue[1] = currentMinValue[1];
+	lastMaxValue[1] = currentMaxValue[1];
+	currentMinValue[1] = currentMaxValue[1] = inlet_signalRight[0];	
+	int32_t absMaxLeft = -lastMinValue[0];
+	if (lastMaxValue[0] > absMaxLeft) 
+		absMaxLeft = lastMaxValue[0];
+	int32_t absMaxRight = -lastMinValue[1];
+	if (lastMaxValue[1] > absMaxRight) 
+		absMaxRight = lastMaxValue[1];
+	float maxDbLeft = q27_to_float(absMaxLeft)*correctDb;
+	float maxDbRight = q27_to_float(absMaxRight)*correctDb;
+	disp_dbLeft=int(log(maxDbLeft)/log(2)*6.0+0.5);
+	disp_dbRight=int(log(maxDbRight)/log(2)*6.0+0.5);
+}]]></code.krate>
+         <code.srate><![CDATA[if (inlet_signalLeft < currentMinValue[0])
+{
+	currentMinValue[0] = inlet_signalLeft;
+}
+if (inlet_signalLeft > currentMaxValue[0])
+{
+	currentMaxValue[0] = inlet_signalLeft;
+}
+
+if (inlet_signalRight< currentMinValue[1])
+{
+	currentMinValue[1] = inlet_signalRight;
+}
+if (inlet_signalRight > currentMaxValue[1])
+{
+	currentMaxValue[1] = inlet_signalRight;
+}]]></code.srate>
+      </object>
+   </patchobj>
+   <obj type="disp/scope 128 b trig" uuid="11747dcd1dc9afe4919f537c861fb18b80b4e4e" name="scope_2" x="0" y="280">
+      <params/>
+      <attribs/>
+   </obj>
+   <obj type="disp/scope 128 b trig" uuid="11747dcd1dc9afe4919f537c861fb18b80b4e4e" name="scope_1" x="154" y="280">
+      <params/>
+      <attribs/>
+   </obj>
+   <patchobj type="patch/object" uuid="b0a6bad2-bdb8-4d1d-88b6-df3b0ee6efea" name="mix_2" x="518" y="294">
+      <params>
+         <frac32.u.map name="gain1" value="0.0"/>
+         <frac32.u.map name="gain2" value="64.0"/>
+      </params>
+      <attribs/>
+      <object id="patch/object" uuid="b0a6bad2-bdb8-4d1d-88b6-df3b0ee6efea">
+         <sDescription>2 input s-rate mixer, shows gain units</sDescription>
+         <author>Johannes Taelman</author>
+         <license>BSD</license>
+         <inlets>
+            <frac32buffer name="bus_in" description="input with unity gain"/>
+            <frac32buffer name="in1" description="input 1"/>
+            <frac32buffer name="in2" description="input 2"/>
+         </inlets>
+         <outlets>
+            <frac32buffer name="out" description="mix out"/>
+         </outlets>
+         <displays/>
+         <params>
+            <frac32.u.map.gain name="gain1">
+               <DefaultValue v="32.0"/>
+            </frac32.u.map.gain>
+            <frac32.u.map.gain name="gain2">
+               <DefaultValue v="32.0"/>
+            </frac32.u.map.gain>
+         </params>
+         <attribs/>
+         <includes/>
+         <code.srate><![CDATA[int32_t accum = ___SMMUL(inlet_in1,param_gain1);
+   accum = ___SMMLA(inlet_in2,param_gain2,accum);
+;   outlet_out=  __SSAT(inlet_bus__in + (accum<<1),30);]]></code.srate>
+      </object>
+   </patchobj>
+   <obj type="math/gain" uuid="62b1c1a6337c7c8f6aec96408a432477b113cfa0" name="gain_2" x="644" y="294">
+      <params>
+         <frac32.u.map name="amp" value="4.0"/>
+      </params>
+      <attribs/>
+   </obj>
+   <nets>
+      <net>
+         <source obj="in_1" outlet="right"/>
+         <dest obj="scope_1" inlet="in"/>
+         <dest obj="object_1" inlet="signalRight"/>
+      </net>
+      <net>
+         <source obj="in_1" outlet="left"/>
+         <dest obj="scope_2" inlet="in"/>
+         <dest obj="object_1" inlet="signalLeft"/>
+      </net>
+      <net>
+         <source obj="dual_sine_1" outlet="0"/>
+         <dest obj="*c_1" inlet="in"/>
+      </net>
+      <net>
+         <source obj="dual_sine_1" outlet="90"/>
+         <dest obj="*c_2" inlet="in"/>
+      </net>
+      <net>
+         <source obj="mix_2" outlet="out"/>
+         <dest obj="gain_2" inlet="in"/>
+      </net>
+      <net>
+         <source obj="*c_1" outlet="out"/>
+         <dest obj="mix_1" inlet="in2"/>
+      </net>
+      <net>
+         <source obj="pink_3" outlet="out"/>
+         <dest obj="mix_1" inlet="in1"/>
+      </net>
+      <net>
+         <source obj="*c_2" outlet="out"/>
+         <dest obj="mix_2" inlet="in2"/>
+      </net>
+      <net>
+         <source obj="pink_2" outlet="out"/>
+         <dest obj="mix_2" inlet="in1"/>
+      </net>
+      <net>
+         <source obj="gain_1" outlet="out"/>
+         <dest obj="out_1" inlet="left"/>
+         <dest obj="object_2" inlet="signalLeft"/>
+      </net>
+      <net>
+         <source obj="mix_1" outlet="out"/>
+         <dest obj="gain_1" inlet="in"/>
+      </net>
+      <net>
+         <source obj="gain_2" outlet="out"/>
+         <dest obj="object_2" inlet="signalRight"/>
+         <dest obj="out_1" inlet="right"/>
+      </net>
+   </nets>
+   <settings>
+      <subpatchmode>no</subpatchmode>
+   </settings>
+   <notes><![CDATA[]]></notes>
+   <windowPos>
+      <x>549</x>
+      <y>106</y>
+      <width>914</width>
+      <height>691</height>
+   </windowPos>
+</patch-1.0>
